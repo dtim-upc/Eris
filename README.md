@@ -1,3 +1,5 @@
+<meta name="robots" content="noindex">
+
 # Eris
 Measuring discord among multidimensional sources
 
