@@ -36,7 +36,7 @@ It is assumed that there is a PostgreSQL database server installed.  On this ins
       );
       ```
    1. Create the auxiliary SQL funcions executing the scripts in the folder ``SQLFunctions`` (there is a different SQL script for each implementation of s-tables).
-1. Fill in the tables using ETL as in ``UseCase_COVID``, or create any other table at will.
+1. Fill in the tables using ETL as in ``UseCase_COVID`` (or create any other table at will, and run your own experiments).
 1. Type `sbt` in the command line in this directory to enter the compiler. Once inside SBT, you can simply type `compile` to see all the code is in place and ready.
 
 
