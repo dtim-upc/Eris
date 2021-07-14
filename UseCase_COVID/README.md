@@ -5,7 +5,7 @@ We present a usecase of Eris based on the reported number of deaths due to COVID
 
 To facilitate the integration of the sources, we used the [NUTS](https://ec.europa.eu/eurostat/web/nuts/background) as geographical master data and [COVIDData repository](https://github.com/coviddata/coviddata) as a surrogate to the regional data in JHU.
 
-All the used data as downloaded from the corresponding source (in CSV format) is available in ``COVID data`` (files are named with the source, date like ``yymmdd``, and the data contained). There is also an empty subfolder ``Error logs`` required for the ETLs to leave log files while running.
+All the used data as downloaded from the corresponding source (in CSV format) is available in ``COVID data`` (files are named with the source, date like ``yymmdd``, and the data contained being either cases or deaths). There is also an empty subfolder ``Error logs`` required for the ETLs to leave log files while running.
 
 # Setup
 
@@ -46,7 +46,7 @@ The high level steps in the ETL are:
 
 # Results analysis
 
-The testing program prints in the standard output the summary of every entity being coalesced (resulting in an independent system of equations). Thus, every printed row contains:
+The testing scala program (whose output is in ``Charts\COVIDErrorData.csv``) prints in the standard output the summary of every entity being coalesced (resulting in an independent system of equations). Thus, every printed row contains:
 * KindOfQuery: Whether it includes regional data or only those at the country level.
 * Shift: In case of dealing with regional data, this indicates the shift used to align cases and deaths.
 * Country: Identifier of the country.
@@ -56,4 +56,6 @@ The testing program prints in the standard output the summary of every entity be
 * Eq. creation time: Time taken by the system to create all the equations.
 * Solve time: Time taken by the system to solve the system of equations.
 * Average squared error: Measure minimized on solving the system of equations.
+
+These data can be automatically loaded into a dynamic table of the Excel file ``COVIDErrorAnalysis.xlsx`` through the MSExcel query mechanims, by simply ``Update All`` button in the ``Data`` tab. From there, any data can be manually selected and copied either to other tab or an independent CSV file for further processing with GNUPlot.
 
