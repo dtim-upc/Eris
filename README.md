@@ -22,10 +22,6 @@ Typing `compile` inside can be used to validate all the code is in place.
 
 It is assumed that there is a PostgreSQL database server installed.  On this instance, the table `schema` should exist in the database that will be used for experiments. This table has columns `tablename`, `fieldname`, `key`, `varfree` and each entry `(t,f,k,v)` represents the fact that table `t` has field `f` which is a key (if `k=true`) or value (if `k=false`), and it can contain variables (if `v=false`) or not (if `v=true`).  Tables and fields not mentioned in `schema` will be ignored by the system.
 
-* Pentaho Data Integration (a.k.a. Kettle) - v9.1 (https://sourceforge.net/projects/pentaho)
-
-You can start the tool by executing "spoon.sh" (or "Spoon.bat" if you have Windows in your personal computer). Be sure that you are using Java JRE 8 for running the PDI tool (set up JAVA_HOME to this version). 
-  
 # Building
 
 1. Create a database in PostgreSQL.
@@ -40,7 +36,7 @@ You can start the tool by executing "spoon.sh" (or "Spoon.bat" if you have Windo
       );
       ```
    1. Create the auxiliary SQL funcions executing the scripts in the folder ``SQLFunctions`` (there is a different SQL script for each implementation of s-tables).
-1. Launch the ETL flow ``UseCase_COVID\covid_world.kjb`` in Kettle to fill the tables in ``UseCase_COVID\DatabaseeSchema.png``
+1. Fill in the tables using ETL as in ``UseCase_COVID``, or create any other table at will.
 1. Type `sbt` in the command line in this directory to enter the compiler. Once inside SBT, you can simply type `compile` to see all the code is in place and ready.
 
 
