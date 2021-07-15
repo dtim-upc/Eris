@@ -59,3 +59,11 @@ The testing scala program (whose output is in ``Charts\COVIDErrorData.csv``) pri
 
 These data can be automatically loaded into a dynamic table of the Excel file ``COVIDErrorAnalysis.xlsx`` through the MSExcel query mechanims, by simply ``Update All`` button in the ``Data`` tab. From there, any data can be manually selected and copied either to other tab or an independent CSV file for further processing with GNUPlot (all CSV and PNG generated corresponding to the charts in the paper are in the ``Charts`` folder).
 
+# Adding more data
+
+In case you want to provide source files with more recent data proceed as follows in the three transformations loading factual data (namely ``Load WorldData``, ``Load JHU``, and ``Load demographics``):
+1. Change all the ``CSV file input`` boxes:
+   1. Filename
+   1. Get Fields
+1. Change the two ``Select values`` boxes called ``Equalizer country`` and ``Equalizer region`` to project the new dates.
+2. Change the two ``Row normaliser`` boxes to pivot the new dates.
