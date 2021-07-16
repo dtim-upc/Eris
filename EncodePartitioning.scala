@@ -80,7 +80,7 @@ object EncodePartitioning extends Encoding {
       s"(CASE WHEN $attName IS NULL then '_' else '' end) || '$tableName'||'_'||'$attName'||'_'||row_number() over (order by $pk)::text"
     def DBNewCoeff(attName: String) = s"(case when $attName IS NULL OR $attName=0 then 1.0 else $attName end)::double precision"
 
-
+    // this is the key of the original table
     val pk = sch.keyFields.filterNot(_=="_var_").mkString(",")
     val keyFields = sch.keyFields.filterNot(_=="_var_").map{f => (f,f+"::text")}
     val valFields = sch.valFields.diff(sch.varfreeFields).map{f => (f,DBDataType(f))}
@@ -218,7 +218,7 @@ object EncodePartitioning extends Encoding {
           case (false,true) => qm + (f -> varfreeDeriv(b,a))
           case (false,false) => throw NYI // this case should not happen if query is well formed
         }
-        (Derivation(q0,List((b,Times(Var(a), Var(b))))),
+        (Derivation(q0,List((f,Times(Var(a), Var(b))))),
           qm_f,
           vc)
     
@@ -232,20 +232,7 @@ object EncodePartitioning extends Encoding {
       case Derivation(q,List((b,Div(Var(c),Num(a))))) =>
         queryEncoding(Derivation(q,List((b,Times(Var(c),Num(1.0/a))))))
 
-/* Case not really needed as soon as the parser does not generate "Inv"
-      case Derivation(q,List((f,Inv(Var(a))))) =>
-        val (q0,qm) = queryEncoding(q)
-        def inplaceDeriv(q: Query) = {
-          val q1 = Rename(q,List(("_coeff_","tmpcoeff")))
-          val q2 = Derivation(q1,List(("_coeff_",Inv(Var("tmpcoeff")))))
-          ProjectAway(q2,List("tmpcoeff"))
-        }
-        (Derivation(q0,List((f,Inv(Var(a))))),
-          qm + (f -> inplaceDeriv(qm(a)) )
-          )
- */
-// this case is wrong... only works if the denominator is var-free and in that case we just
-        // use the constant coefficient part.
+
       case Derivation(q,List((f,Div(Num(c),Var(a))))) =>
         val (q0,qm,vc) = queryEncoding(q)
         if (q.schema.varfreeFields.contains(a)) {
@@ -366,35 +353,6 @@ object EncodePartitioning extends Encoding {
       qm.map{case (f,qf) => (fieldEncoding(vtable,f),qf)}
   }
 
-  /*
-  def iterateEncodedRows(iter: Iterator[Row], iters:Map[String,Iterator[Row]]): Iterator[Row] = {
-    // fold over the main iterator and in each step, pull off all of the matching  term structure 
-    val result_iter = iter.scanLeft((iters,(Map(),Map()):Row)){case ((iters,_),(keys_0,vals_0)) =>
-      // for each value iterator
-      val terms_iters = iters.map{case (f,iter_f) =>
-        // get the value field i.e. the scalar term
-        val b = vals_0(f)
-        if (iter_f.hasNext) {
-          // span the iterator matching the keys
-          val (pref, suff) = iter_f.span{case (keys_f,vals_f) =>
-            keys_0.forall{case (kf,kv) => kv == keys_f(kf)}}
-            // traverse the prefix to extract coeffs and vars, and build the term
-            val term = pref.foldLeft(b.toExpr.get){case (t,(ks,vs)) =>
-            Absyn.Plus(t,Absyn.Times(vs("_coeff_").toExpr.get,Absyn.Var(ks("_var_"))))}
-          // return term and updated iterator
-          (f,(suff,term))
-        } else {
-          // return term and same empty iterator
-          (f,(iter_f,b.toExpr.get))
-        }
-      }
-      val newiters = terms_iters.map{case(f,(it,_)) => (f,it)}
-      val vals = terms_iters.map{case (f,(_,tm)) => (f,Absyn.ExprV(tm))}
-      (newiters,(keys_0,vals))
-    }
-    result_iter.drop(1).map(_._2)
-  }
-   */
 
   def bufferize[A](iter: Iterator[A]): BufferedIterator[A] = {
     new BufferedIterator[A] {

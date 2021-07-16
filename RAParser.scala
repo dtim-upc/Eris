@@ -8,7 +8,6 @@ class RAParser extends StandardTokenParsers with PackratParsers  {
   type P[+A] = PackratParser[A]
 
   def parseStr[A](parser: P[A], input: String): A = {
-//    println(input)
     phrase(parser)(new lexical.Scanner(input)) match {
       case Success(ast, _) => ast
       case e: NoSuccess => sys.error(e.msg)

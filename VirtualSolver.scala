@@ -12,17 +12,12 @@ import scala.jdk.CollectionConverters._
 import scala.annotation.tailrec
 import play.api.libs.json.Json
 
-object SolverWithoutViews {
+object VirtualSolver {
   val p = new RAParser()
 
   type Emitter[A] = PrintWriter => A
 
-  def timeIt[A](e: => A): (A,Double) = {
-    val startTime = System.nanoTime()
-    val x = e
-    val endTime = System.nanoTime()
-    (x,(endTime-startTime)/1e9)
-  }
+  import Timer.timeIt
 
   def toLPForm(vars: List[String], sys: List[(Database.Vector[String],Double)]): (List[List[Double]], List[Double]) = {
     val A = sys.map{v => vars.map{x => v._1.getOrElse(x,0.0)}}
@@ -384,32 +379,31 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
       (json \ "objective").get.as[Double])
   }
  
-  def runOSQPStreaming[A](script: Emitter[A]): (A,(List[Double],Double)) = {
+  def runOSQPStreaming[A](script: Emitter[A]): (A,(List[Double],Double),Double,Double) = {
 
+    
     val filename = "foo.py"
     val pythonname = if (new File("python.bat").exists) { "python.bat" } else { "python3" }
     val file = new File(filename)
     val writer = new PrintWriter(new BufferedWriter(new FileWriter(filename)))
-    val a = script(writer)
+    val (a,scriptTime) = Timer.timeIt(script(writer))
     writer.close()
     
-    val processBuilder = new ProcessBuilder(pythonname, file.getAbsolutePath())
-    val process = processBuilder.start()
-    //val results = readProcessOutput(process.getInputStream())
-    val results = Json.parse(process.getInputStream())
-
-    //println(p.result)
-    //println(results)
-    //p.parseStr(p.result,results)
-    (a,parseJsonResult(results))
+    def run() = {
+      val processBuilder = new ProcessBuilder(pythonname, file.getAbsolutePath())
+      val process = processBuilder.start()
+      Json.parse(process.getInputStream())
+    }
+    val (results,runTime) = Timer.timeIt(run())
+    (a,parseJsonResult(results),scriptTime,runTime)
 
   }
   // TODO: Split this into a function that extends a LP/QP problem with the constraints
   // entailed by coalescing a raw table and symbolic table, and another function that finalizes the
   // system and solves it.  This will make it easier to deal with multiple tables.
   def solveList(equations: List[Database.Equation]) = {
-    val (fvs,fvsTime) = timeIt(equations.foldLeft(Set[String]()){case (s,eqn) => eqn.fvsAcc(s)}.toList)
-    val (lpForm,lpFormTime) = timeIt(equations.map(Database.Equation.toLPForm))
+    val (fvs,fvsTime) = Timer.timeIt(equations.foldLeft(Set[String]()){case (s,eqn) => eqn.fvsAcc(s)}.toList)
+    val (lpForm,lpFormTime) = Timer.timeIt(equations.map(Database.Equation.toLPForm))
     if (lpForm.isEmpty) {
       print("No equations; skipping;")
       (null,0)
@@ -419,11 +413,8 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
     } else {
       val ((a,c),solveLpFormTime) = timeIt(toLPFormSparse(lpForm))
       val (osqp,emitTime) = timeIt(emitQPSparse(fvs, a, c))
-      val (((),(xs,x)),solveTime) = timeIt(runOSQPStreaming(osqp))
+      val ((),(xs,x),_,_) = runOSQPStreaming(osqp)
       val (valuation,zipTime) = timeIt(fvs.zip(xs))
-//      println("Equations: "+equations.length + ", Variables: " + fvs.length + ", Relevant variables: " + fvs.filterNot(_.startsWith("_")).length )
-//      println(s"$fvsTime,$lpFormTime,$solveLpFormTime,$emitTime,$solveTime,$zipTime")
-//      (valuation,x)
       (valuation,x/fvs.filterNot(_.startsWith("_")).length)
     }
   }
@@ -431,61 +422,39 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
   def processList(conn: java.sql.Connection, encoder: Encoding, ctx: Database.InstanceSchema, es: Database.InstanceSchema, str: String) = {
     val q = p.parseStr(p.query,str)
     val schema = Absyn.Query.tc(ctx,q)
-//    println("----->>>>> Result schema")
-//    println(schema.toString)
     val eq = encoder.queryEncoding(q)
-//    println("----->>>>> Encoded query")
-//    println(eq)
-//    val enc_iter_symbolic = encoder.iterateEncodedQuery(conn,eq,es)
-//    val symbolic = Database.Rel(enc_iter_symbolic.toMap)
-//    println("----->>>>> Data")
-//    println(symbolic)
     val equations = encoder.iterateEncodedConstraints(conn,eq,es)
-//    println("----->>>>> Constraints")
-//    println(equations)
     val (valuation,objective) = solveList(equations.toList)
-//    println("----->>>>> Solution")
     (valuation, objective)
   }
 
-  def solveIter(r: Iterator[Database.Equation]) = {
+  def solveIter(r: Iterator[Database.Equation]): (List[(String,Double)],Double,Int,Int,Double,Double) = {
     if (r.isEmpty) {
-      (null,0,0,0,0)
+      (List(),0,0,0,0,0)
     } else {
       val (osqp,emitTime) = timeIt(emitQPSparseIter(r))
-      val (((fvsmap,m,n),(xs,x)),solveTime) = timeIt(runOSQPStreaming(osqp))
+      val ((fvsmap,m,n),(xs,x),scriptTime,solveTime) = runOSQPStreaming(osqp)
       @tailrec
       def getValuation(vs: List[Double],i: Int, acc:List[(String,Double)]): List[(String,Double)] = vs match {
         case Nil => acc
         case v::vs => getValuation(vs,i+1,(fvsmap._2(i),v)::acc)
       }
       val (valuation,valuationTime) = timeIt(getValuation(xs,0,List()))
-      //println(valuation)
       val (relvars,relvarTime) = timeIt(valuation.filterNot{case (v,_) => v.startsWith("_")}.length)
-//      println("Equations: "+m + ", Variables: " + n + ", Relevant variables: " + relvars )
-//      print(m + ";" + relvars +";"+solveTime+ ";")
-//      println(s"$emitTime,$solveTime,$valuationTime")
-      //      (valuation,x)
-//      (valuation,x/relvars)
-      (valuation,x/relvars,m,relvars,solveTime)
+      (valuation,x/relvars,m,relvars,emitTime+scriptTime,solveTime)
     }
   }
 
-  def processIter(conn: java.sql.Connection, encoder: Encoding, ctx: Database.InstanceSchema, es: Database.InstanceSchema, str: String) = {
+  def processIter(conn: java.sql.Connection, encoder: Encoding, ctx: Database.InstanceSchema, es: Database.InstanceSchema, str: String): (List[(String,Double)],Double,Int,Int,Double,Double) = {
     val q = p.parseStr(p.query,str)
     val schema = Absyn.Query.tc(ctx,q)
-//    println("----->>>>> Result schema")
-//    println(schema.toString)
     val eq = encoder.queryEncoding(q)
-//    println("----->>>>> Encoded query")
-//    println(eq)
     val (enc_iter_constraints,eqCreationTime) = timeIt(encoder.iterateEncodedConstraints(conn,eq,es))
-    val (valuation,objective,eqs,vars,solveTime) = solveIter(enc_iter_constraints)
-//    println("----->>>>> Solution")
-    (valuation, objective, eqs, vars, eqCreationTime, solveTime)
+    val (valuation,objective,eqs,vars,emitTime,solveTime) = solveIter(enc_iter_constraints)
+    (valuation, objective, eqs, vars, emitTime+eqCreationTime, solveTime)
     }
  
-  def solve(connector: Connector, tbl: String, encoding: Encoding) = {
+  def solve(connector: Connector, tbl: String, encoding: Encoding): (List[(String,Double)],Double,Int,Int,Double,Double) = {
     val conn = connector.getConnection()
     conn.setAutoCommit(false)
     val ctx = Database.loadSchema(conn)
@@ -513,16 +482,18 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
     if (interactive) {
       val conn = connector.getConnection()
       val ctx = Database.loadSchema(conn)
+      // This just prints all the tables available in the database
       println("----->>>>> Table schemas")
       println(ctx)
       val es = encoder_to_use.instanceSchemaEncoding(ctx)
+      // This prints all the eschemas of the tables distinguishing keys and values
       println("----->>>>> Encoded schemas")
       println(es)
       while (true) {
         try {
           print("solver> ")
           val (valuation,objective) = processList(conn, encoder_to_use, ctx, es, scala.io.StdIn.readLine())
-//          println("Valuation: " + valuation.toString)
+          // Valuation is simply ignored in these experiments, but it is also available
           println("Objective: " + objective.toString)
         } catch {
           case Absyn.TypeError(msg) => println("Type error: " + msg)

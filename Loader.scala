@@ -26,13 +26,13 @@ object Loader {
     }
 
     if(!cleanup) {
-      println(ctx)
+      Debug.println(1,ctx.toString)
       // Create the views
       encodedSchema.foreach{case (r,(f,sch)) =>
-        println(tablename)
-        println(schema)
+        Debug.println(1,tablename)
+        Debug.println(1,schema.toString)
         val cmd =  Database.createViewCommand(tablename,r,encode.schemaToViewDef(tablename,r,f,sch), q.schema.varfreeFields.contains(f))
-        println(cmd)
+        Debug.println(1,cmd)
         st.executeUpdate(cmd)
         conn2.commit()
       }

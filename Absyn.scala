@@ -102,38 +102,15 @@ object Absyn {
     def fvs: Set[String] = Expr.fvs(this)
     def fvsAcc(s: Set[String]) : Set[String] = Expr.fvsAcc(this,s)
   }
-  case class Array(l: List[Double]) extends Expr {
-//    override def toString = l.map{_.toString}.mkString(",")
-//    override def fvsAcc(s: Set[String]) = s
-  }
-  case class Var(x: Variable) extends Expr {
-//    override def toString = x
-//    override def fvsAcc(s: Set[String]) = s + x
-  }
-  case class Num(n: Double) extends Expr {
-//    override def toString = n.toString
-//    override def fvsAcc(s: Set[String]) = s
-  }
-  case class Atom(s: String) extends Expr {
-//    override def toString = "'"+s+"'"
- //   override def fvsAcc(s: Set[String]) = Set()
-  }
-  case class Plus(e1: Expr, e2: Expr) extends Expr {
-//    override def toString = "(" + e1.toString + " + " + e2.toString + ")"
-//    override def fvsAcc(s: Set[String]) = e2.fvsAcc(e1.fvsAcc(s))
-  }
-  case class ArrayPlus(e1: Expr, e2: Expr) extends Expr {
-//    override def toString = "(" + e1.toString + "+A+" + e2.toString + ")"
-//    override def fvsAcc(s: Set[String]) = e2.fvsAcc(e1.fvsAcc(s))
-  }
-  case class ArrayScalar(e1: Expr, e2: Expr) extends Expr {
-//    override def toString = "(" + e1.toString + "*A*" + e2.toString + ")"
-//    override def fvsAcc(s: Set[String]) = e2.fvsAcc(e1.fvsAcc(s))
-  }
-  case class Minus(e1: Expr, e2: Expr) extends Expr {
-//    override def toString = "(" + e1.toString + " - " + e2.toString + ")"
-//    override def fvsAcc(s: Set[String]) = e2.fvsAcc(e1.fvsAcc(s))
-  }
+  case class Array(l: List[Double]) extends Expr 
+  case class Var(x: Variable) extends Expr
+  case class Num(n: Double) extends Expr 
+  case class Atom(s: String) extends Expr
+  case class Plus(e1: Expr, e2: Expr) extends Expr
+  case class ArrayPlus(e1: Expr, e2: Expr) extends Expr
+  case class ArrayScalar(e1: Expr, e2: Expr) extends Expr 
+  case class Minus(e1: Expr, e2: Expr) extends Expr
+  // these methods should probably be deleted
   case class Times(e1: Expr, e2: Expr) extends Expr {
     override def toString = "(" + e1.toString + " * " + e2.toString + ")"
     override def fvsAcc(s: Set[String]) = e2.fvsAcc(e1.fvsAcc(s))
@@ -142,24 +119,12 @@ object Absyn {
     override def toString = "(" + e1.toString + " / " + e2.toString + ")"
     override def fvsAcc(s: Set[String]) = e2.fvsAcc(e1.fvsAcc(s))
   }
-  case class UMinus(e: Expr) extends Expr {
-//    override def toString = "-" + e.toString
-//    override def fvsAcc(s: Set[String]) = e.fvsAcc(s)
-  }
-  case class Inv(e: Expr) extends Expr {
-//    override def toString = "1/" + e.toString
-//    override def fvsAcc(s: Set[String]) = e.fvsAcc(s)
-  }
+  case class UMinus(e: Expr) extends Expr
+  case class Inv(e: Expr) extends Expr 
   // creates an array by running a closed query q and sorting the results
-  case class CreateArray(q: Query, varname:String, value: String) extends Expr {
-//    override def toString = "createArray(" + q.toString + "," + varname + "," + value + ")"
-//    override def fvsAcc(s: Set[String]) = if (varname=="ConstantTerm") {s} else {s + varname}
-  }
+  case class CreateArray(q: Query, varname:String, value: String) extends Expr
   // creates a sparse vector with a variable and constant value
-  case class CreateSparseVector(variable: String, constant: String) extends Expr {
- //   override def toString = "createSparseVector(" + variable +","+ constant + ")"
- //   override def fvsAcc(s: Set[String]) = s
-  }
+  case class CreateSparseVector(variable: String, constant: String) extends Expr 
 
   object Expr {
 
@@ -341,10 +306,6 @@ object Absyn {
 
   // Internal operations
   case class Singletons(q: Query, collapse: List[String]) extends Query
-  // TODO: Replace, MergeVariables, and Shuffle seem no longer in use
-  //  case class Replace(q: Query, a:String, renaming: List[(String, String)]) extends Query
-  //case class MergeVariables(q1: Query, q2:Query) extends Query
-  //case class Shuffle(q: Query, neworder:Query, att:String) extends Query
   // TODO: The "value" component is an uninterpreted SQL string.  Replace this with an expression,
   // or specialize this to its intended use for generating row numbers by some order and with some string prefix.
   case class AddSurrogate(q: Query, name:String, value:String) extends Query
@@ -361,22 +322,29 @@ object Absyn {
       case Relation(r) =>
         val fields = (q.schema.keyFields.toList ++ q.schema.valFields.toList).mkString(",")
         "SELECT "+fields+" FROM " + r
+
       case Emptyset =>
         val fields = (q.schema.keyFields.toList.map{case (s) => " TEXT('') AS "+s} ++ q.schema.valFields.toList.map{case (s) => " 0.0 AS "+s}).mkString(",")
         "SELECT "+fields+" WHERE FALSE"
+
       case Select(q,p) =>
         "SELECT * FROM "+ sql_from(q,"_") + " WHERE " + Pred.sql(p)
+
       case Project(q,l) =>
         "SELECT " + (if((q.schema.keyFields.toList++l).isEmpty) {"'Phantom'"} else {(q.schema.keyFields.toList++l).mkString(",")}) + " FROM " + sql_from(q,"_")
+
       case ProjectAway(q,l) =>
         val rest = (q.schema.valFields ++ q.schema.keyFields) -- l
         "SELECT " + rest.toList.mkString(",") + " FROM " + sql_from(q,"_")
+
       case Rename(q,renamings) =>
         val rest = (q.schema.valFields ++ q.schema.keyFields) -- (renamings.map(_._1))
         "SELECT " + (rest.toList ++ renamings.map{case (x,y) => x + " AS " + y}).mkString(",") + " FROM " + sql_from(q,"_")
+
       case UnionAll(q1,q2) =>
         val fields = (q.schema.keyFields.toList ++ q.schema.valFields.toList).mkString(",")
         "(SELECT "+fields+" FROM ("+sql(q1)+") _) UNION ALL (SELECT "+fields+" FROM ("+sql(q2)+") _)"
+
       case DUnion(q1,q2,attr) =>
         // again fragile, need to return fields in right order
         val keyfields = q1.schema.keyFields.toList
@@ -384,24 +352,28 @@ object Absyn {
         val fields0 = (keyfields++List("0 AS "+attr)++valfields).mkString(",")
         val fields1 = (keyfields++List("1 AS "+attr)++valfields).mkString(",")
         "(SELECT "+ fields0 + " FROM ("+sql(q1)+") _) UNION ALL (SELECT "+fields1+" FROM ("+sql(q2)+") _)"
+
       case Intersection(q1,q2) =>
         val fields = (q.schema.keyFields.toList ++ q.schema.valFields.toList).mkString(",")
         "(SELECT "+fields+" FROM ("+sql(q1)+") _) INTERSECT (SELECT "+fields+" FROM ("+sql(q2)+") _)"
-        // difference behavior doesnt' match paper
+
+        // this is relational difference rather than map key subtraction
       case Difference(q1,q2) =>
         val fields = (q1.schema.keyFields.toList ++ q1.schema.valFields.toList).mkString(",")
         "(SELECT "+fields+" FROM ("+sql(q1)+") _) EXCEPT (SELECT "+fields+" FROM ("+sql(q2)+") _)"
+
       case NaturalJoin(q1,q2) =>
         val fields = (q.schema.keyFields.toList ++ q.schema.valFields.toList).mkString(",")
         "SELECT "+fields+" FROM "+sql_from(q1,"_1")+" NATURAL JOIN "+sql_from(q2,"_2")
+
       case ThetaJoin(q1,p,q2) =>
         val fields = (q.schema.keyFields.toList ++ q.schema.valFields.toList).mkString(",")
         "SELECT "+fields+" FROM "+sql_from(q1,"_1")+", "+sql_from(q2,"_2")+ " WHERE "+ Pred.sql(p)
+
       case Aggregation(q,gl,sl) =>
         "SELECT "+ (gl++sl.map{x => "SUM("+x+") AS " + x}).mkString(",") +" FROM "+sql_from(q,"_") +
         (if(gl.isEmpty) {""} else {" GROUP BY " + gl.mkString(",")})
 
-        // TODO: Group by and having should occur together or not at all
       case Coalesce(q,cl) =>
         val gb = q.schema.keyFields--cl
         val values = q.schema.valFields.map{a => "KEEP_ANY("+a+") AS "+a}
@@ -409,6 +381,7 @@ object Absyn {
         " FROM "+sql_from(q,"_")+
         (if(gb.isEmpty) {""} else {" GROUP BY "+gb.mkString(",")})+
         " HAVING COUNT(*)>1"
+
       case Singletons(q,cl) =>
         val gb = q.schema.keyFields--cl
         val values = q.schema.valFields.map{a => "KEEP_ANY("+a+") AS "+a}
@@ -416,39 +389,20 @@ object Absyn {
         " FROM "+sql_from(q,"_")+
         (if(gb.isEmpty) {""} else {" GROUP BY "+gb.mkString(",")})+
         " HAVING COUNT(*)=1"
+
       case Derivation(q,derivs) =>
         val rest = (q.schema.keyFields ++ q.schema.valFields) -- (derivs.map(_._1))
         "SELECT "+ (rest.toList ++ derivs.map{case (x,e) => Expr.sql(e) + " AS " + x}).mkString(",") +
             " FROM "+sql_from(q,"_")
+
       case NewRow(keys, values) =>
         "SELECT "+ ((keys ++ values).map{case (x,e) => Expr.sql(e) + " AS " + x}).mkString(",")
 
-        // TODO: Remove this as no longer used
-      /*      case Replace(q,a,replacings) =>
-        val rest = (q.schema.valFields ++ q.schema.keyFields) -- List(a)
-        "SELECT " + (rest.toList.mkString(",")) + ", CASE " +
-         (replacings.map{case (x,y) => "WHEN " + a + "='" + x + "' THEN '" + y + "'"}).mkString(" ") +
-         " ELSE " + a + " END AS " + a +
-        " FROM " + sql_from(q,"_")
-
-      // TODO: Remove this as no longer used
-      case MergeVariables(q1, q2) =>
-        "SELECT row_number() OVER (ORDER BY varname) AS index, varname, oldindexleft, oldindexright" +
-        " FROM ( SELECT _1.index AS oldindexleft, _2.index AS oldindexright, CASE WHEN _1.varname IS NOT NULL THEN _1.varname ELSE _2.varname END AS varname"+
-        "   FROM "+ sql_from(q1,"_1") +" FULL OUTER JOIN "+ sql_from(q2,"_2") + " ON _1.varname=_2.varname) _"
-
-      // TODO: Remove this as no longer used
-      case Shuffle(q, neworder, att) =>
-        val keyfields = q.schema.keyFields.toList
-        val varfreefields = q.schema.varfreeFields.toList
-        val arrayfields = q.schema.valFields.toList.filterNot(q.schema.varfreeFields.contains(_)).map{ case x => "shuffle(" + x +",ARRAY(SELECT "+ att +"::INTEGER FROM " + sql_from(neworder,"_") + " ORDER BY varname)) AS "+x} 
-        "SELECT "+ (keyfields ++ varfreefields ++ arrayfields).mkString(",") + 
-        " FROM " + sql_from(q,"_")
-        */
       case AddSurrogate(q,name,value) =>
         val attList = q.schema.keyFields ++ q.schema.valFields
         "SELECT "+ (attList.toList++List(value + " AS " + name)).mkString(",") +
             " FROM "+sql_from(q,"_")
+
       case DefineCTE(name,cte,q) =>
         "WITH "+name+" AS ("+sql(cte)+") "+sql(q)
     }
@@ -564,7 +518,7 @@ object Absyn {
             "The same field is assigned multiple times in a derivation operator")
           val newSet = new ListSet() ++ derivs.map(_._1)
           assertOrError((schema.keyFields ++ schema.valFields).intersect(newSet).isEmpty,
-            "The new attributes defined in a derivation operator should not already be present in the subquery type")
+            ("The new attributes " ++ newSet.toString ++ "defined in a derivation operator should not already be present in the subquery type" ++ (schema.keyFields ++ schema.valFields).toString))
           assertOrError(derivs.forall{case (x,e) => Expr.tc(schema.valFields,e)},
             "A defining expression in a derivation operator is not well-formed")
           val newVarfreeFields = new ListSet() ++ derivs.filter{case (_,CreateSparseVector(_,_)) => false
@@ -598,27 +552,6 @@ object Absyn {
           val keysSet = new ListSet() ++ keys.map{case (a,_) => a}
           val valuesSet = new ListSet() ++ values.map{case (a,_) => a}
           Schema(keysSet, valuesSet, valuesSet)
-          // TODO: Replace as no longer used
-        /*case Replace(q,a,replacings) =>
-          val schema = tc(ctx,q)
-          // no value appears more than once as first component
-          assertOrError(replacings.groupMapReduce( _._1){x => 1}(_+_).forall{_._2 == 1},
-            "Value replaced more than once")
-          schema
-        case MergeVariables(q1,q2) =>
-          val schema1 = tc(ctx,q1)
-          val schema2 = tc(ctx,q2)
-          assertOrError(schema1.keyFields.equals(Set("index","varname")),
-            "Left input of merge variables must be a variable table")
-          assertOrError(schema2.keyFields.equals(Set("index","varname")),
-            "Right input of merge variables must be a variable table")
-          Schema(ListSet("index","varname","oldindexleft","oldindexright"), ListSet(), ListSet())
-        case Shuffle(q, neworder, att) =>
-          val schema = tc(ctx,q)
-          val orderschema = tc(ctx,neworder)
-          assertOrError(orderschema.keyFields.equals(Set("index","varname","oldindexleft","oldindexright")),
-            "The new order on shuffling must have attributes index, varname, oldindexleft, oldindexright")
-          schema */
         case AddSurrogate(q,name,value) =>
           val schema = tc(ctx,q)
           Schema( schema.keyFields+name, schema.valFields, schema.varfreeFields)

@@ -4,11 +4,6 @@ import java.sql.ResultSet
 
 object EncodeNF2_SparseV extends Encoding {
 
-//  val DBDataType = "row(array[(1.0,(case when <AttName> IS NULL then '_' else '' end) ||'<TableName>_'||'<AttName>_'||row_number() over (order by <PK>))]::term[],case when <AttName> IS NULL then 0.0 else <AttName> end)::sparsevec"
-
-
-//  type EncodedQuery = (Absyn.Query)
-//  type EncodedSchema = (Database.Schema)
   type EncodedQuery = (Absyn.Query,Absyn.Query)
   type EncodedSchema = (Database.Schema,Database.Schema)
 
@@ -374,9 +369,6 @@ object EncodeNF2_SparseV extends Encoding {
     val (q0,_) = eq
     val sch_0 = Absyn.Query.tc(es,q0)
     val sql0 = Absyn.Query.sql(q0)
-//    println("----->>>>> SQL Query")
-//    println(sch_0)
-//    println(sql0)
     def createStatement(x: String) = conn.prepareStatement(x, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
     val iter: Iterator[Row] = Database.iterateRelation(Database.iterateQuery(createStatement(sql0),blocksize), sch_0)
 
@@ -389,9 +381,6 @@ object EncodeNF2_SparseV extends Encoding {
     val (_,vc) = eq
     val sch_vc = Absyn.Query.tc(es,vc)
     val sql_vc = Absyn.Query.sql(vc)
-//    println("----->>>>> SQL Constraints")
-//    println(sch_vc)
-//    println(sql_vc)
     def createStatement(x: String) = conn.prepareStatement(x, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
     val iter: Iterator[Row] = Database.iterateRelation(Database.iterateQuery(createStatement(sql_vc),blocksize), sch_vc)
 
@@ -399,6 +388,5 @@ object EncodeNF2_SparseV extends Encoding {
       Equation(r._2("lhs").toExpr.getOrElse(Absyn.Num(0)), r._2("rhs").toExpr.getOrElse(Absyn.Num(0)))
     }
   }
-
 
 }

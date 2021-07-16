@@ -26,7 +26,7 @@ object Transformer {
                          // Insert commands to load encoded data
     val preparedStatement2 = conn.prepareStatement("SELECT * FROM "+ tbl)
     val stream = Database.iterateQuery(preparedStatement2,blocksize)
-    // TODO: Distortion parameters
+
     Database.iterateRelation(stream, schema)
       .map(Database.Row.distort(schema,_,sigma))
       .map(Database.Row.obscure(schema,_,p_null))
@@ -39,7 +39,7 @@ object Transformer {
     ).grouped(blocksize)
       .map(_.mkString("\n"))
       .foreach{cmd =>
-      println(cmd)
+      Debug.println(1,cmd)
       st.executeUpdate(cmd)
       conn2.commit()
     }

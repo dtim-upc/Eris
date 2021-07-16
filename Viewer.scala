@@ -19,7 +19,7 @@ object Viewer {
     conn.commit()
 
     val cmd = Database.insertQueryCommand(vtable, vquery)
-    println(cmd)
+    Debug.println(1,cmd)
     st.executeUpdate(cmd)
     conn.commit()
 

@@ -268,12 +268,8 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
     
     val processBuilder = new ProcessBuilder(pythonname, file.getAbsolutePath())
     val process = processBuilder.start()
-    //val results = readProcessOutput(process.getInputStream())
     val results = Json.parse(process.getInputStream())
 
-    //println(p.result)
-    //println(results)
-    //p.parseStr(p.result,results)
     parseJsonResult(results)
 
   }
@@ -290,8 +286,6 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
       println("No free variables; skipping")
     } else {
       val ((a,b),solveLpFormTime) = timeIt(toLPFormSparse(lpForm))
-      //      val osqp = Solver.makeQPSparse(fvs, l, a, u)
-      //      val (xs,x) = Solver.runOSQP(osqp)
       val (osqp,emitTime) = timeIt(emitQPSparse(fvs, b, a, b))
       val ((xs,x),solveTime) = timeIt(runOSQPStreaming(osqp))
       val (valuation,zipTime) = timeIt(fvs.zip(xs))
@@ -301,10 +295,6 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
     }
   }
 
-  // TODO: Generalize to take list of tables (or list of pairs of tables) and
-  // solve system of equations resulting from coalescing all of them simultaneously.
-  // TODO: Rework this to deal with large tables efficiently, by traversing two iterators
-  // simultaneously instead of loading both tables into memory.
   def solve(connector: Connector, tbl: String, encoding: Encoding) = {
     val conn = connector.getConnection()
     val ctx = Database.loadSchema(conn)

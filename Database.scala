@@ -302,23 +302,7 @@ WHERE $test);
     (keyFields ++ valFields ++ varfreeFields).toMap
   }
 
-  // TODO: Remove
-  /*
-  def schemaToViewDef(sourceName:String, r:String, sourceField:String, sch: Schema, encode: Encoding): Map[String,String] = {
-    def instantiate(s: String, table:String, att: String, pk:String) = {
-      s.replaceAll("<AttName>",att).replaceAll("<TableName>",table).replaceAll("<PK>",pk)
-    }
 
-    val pk = sch.keyFields.filterNot(_=="_var_").mkString(",")
-    val keyFields = sch.keyFields.filterNot(_=="_var_").map{f => (f,f+"::text")}
-    val valFields = sch.valFields.diff(sch.varfreeFields).map{f => (f,instantiate(encode.DBDataType,sourceName,f,pk))}
-    val varfreeFields = sch.varfreeFields.filterNot(_=="_coeff_").map(f => (f,f+"::double precision"))
-    val varField = sch.keyFields.filter(_=="_var_").map{f => (f,instantiate(encode.DBNewVar,sourceName,sourceField,pk))}
-    val coeffField = sch.varfreeFields.filter(_=="_coeff_").map{f => (f,instantiate(encode.DBNewCoeff,sourceName,f,pk))}
-
-    (keyFields ++ valFields ++ varfreeFields ++ varField ++ coeffField).toMap
-  }
-   */
 
   def alterTableCommand(r: String, sch: Schema): String = {
     val keyFieldTuple = "(" + sch.keyFields.toList.mkString(",") + ")"
@@ -327,16 +311,11 @@ WHERE $test);
   }
 
   type Vector[A] = Map[A,Double]
-  /*def vecPlus[A](v1: Map[A,Double], v2: Map[A,Double]): Map[A,Double] = {
-    val keys = v1.keySet ++ v2.keySet
-    Map[A,Double]() ++ keys.map{k => (k,v1.getOrElse(k,0.0) + v2.getOrElse(k,0.0))}
-   }*/
+
   def vecPlus[A](v1: Vector[A], v2: Vector[A]): Vector[A] = {
     v2.foldLeft(v1){case (v,(k,a)) => v.updatedWith(k){z => Some(a+z.getOrElse(0.0))}}
   }
-  /*def vecScalar[A](alpha: Double, v: Map[A,Double]): Map[A,Double] = {
-    v.map{case (a,v) => (a,alpha * v)}
-  }*/
+
   def vecScalar[A](alpha: Double, v: Vector[A]): Vector[A] = {
     v.foldLeft(Map[A,Double]()){case (v,(k,x)) => v + (k -> alpha * x)}
   }
@@ -365,17 +344,7 @@ WHERE $test);
       }
       go(List(Left(e)),1.0,Map())
     }
-    /*def toVec(e: Expr): Map[Option[String], Double] = e match {
-      case Var(x) => Map(Some(x) -> 1.0)
-      case Num(c) => Map(None -> c)
-      case Plus(e1,e2) => vecPlus(toVec(e1),toVec(e2))
-      case Minus(e1,e2) => vecPlus(toVec(e1),vecScalar(-1.0,toVec(e2)))
-      case Times(e,Num(c)) => vecScalar(c,toVec(e))
-      case Times(Num(c),e) => vecScalar(c,toVec(e))
-      case Div(e,Num(c)) => vecScalar(1.0/c,toVec(e))
-      case UMinus(e) => vecScalar(-1.0,toVec(e))
-    }
-     */
+
 
     def simplifyLinear(e: Expr): Expr = {
       val v = toVec(e)
@@ -480,23 +449,6 @@ WHERE $test);
       Rel(m.filterNot(Row.redact(_,p)))
     }
 
-    // The relationas are also assumed to have the same schema so that value field lookups of
-    // fields in this relation are always guaranteed to succeed in the other relation
-    // old definition!
-    /*
-     def coalesce(otherRel: Rel): List[Equation] = {
-        m.toList.filter{case (ks,_) => otherRel.m.exists(_._1 == ks)}.flatMap{case (ks,vs) =>
-        val vs2 = otherRel.m(ks)
-        vs.toList.flatMap{case (a,x) =>
-          val x2 = vs2(a)
-          (x.toExpr, x2.toExpr) match {
-            case (Some(e1), Some(e2)) => List(Equation(e1,e2))
-            case (_,_) => List()
-          }
-        }
-      }
-    }
-     */
 
     def getEquations(): List[Equation] = {
       m.map{ r =>

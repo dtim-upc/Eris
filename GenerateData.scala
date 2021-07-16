@@ -1,6 +1,8 @@
 import scala.util.Random
 
-object Scaling {
+// Creates random data given a scaling factor
+
+object GenerateData {
 
   case class UpdQueue(conn: java.sql.Connection, size: Int) {
     val queue = scala.collection.mutable.Queue[String]()
