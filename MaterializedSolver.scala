@@ -12,7 +12,7 @@ import scala.jdk.CollectionConverters._
 import scala.annotation.tailrec
 import play.api.libs.json.Json
 
-object Solver {
+object MaterializedSolver {
   val p = new RAParser()
 
   type Emitter = PrintWriter => Unit
