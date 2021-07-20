@@ -1,217 +1,98 @@
-# Eris: Measuring discord among multidimensional data sources
+<meta name="robots" content="noindex">
+
+# Discordance measurement using COVID-19 data from JHU and EuroStats
+We present a usecase of Eris based on the reported number of deaths due to COVID-19 in each country and region (as in [JHU](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series)) and the overall number of deaths in the corresponding country or region (as in [EuroStats](https://ec.europa.eu/eurostat/databrowser/view/demo_r_mwk2_ts/default/table?lang=en)). The study is done only for six countries (i.e., NL, SE, DE, IT, ES, UK), even if the sources are fully loaded into the database.
+
+To facilitate the integration of the sources, we used the [NUTS](https://ec.europa.eu/eurostat/web/nuts/background) as geographical master data and [COVIDData repository](https://github.com/coviddata/coviddata) as a surrogate to the regional data in JHU.
+
+All the used data as downloaded from the corresponding source (in CSV format) are available in ``COVID data`` folder (files are named with the source, date like ``yymmdd``, and the data contained being either cases or deaths). There is also an empty subfolder ``Error logs`` required for the ETL flows to leave log files while running.
 
 # Setup
 
-* Install Scala (https://www.scala-lang.org/download/)  - v2.13 with
-JVM 11 should work.
+* Install [PostgreSQL](https://www.postgresql.org) - v9.6
 
-If Scala is correctly installed, typing `scala` and then something
-like `1+1` at the resulting prompt should result in something like
-`val res0 : Int = 2` being printed.
+* Install [Pentaho Data Integration](https://sourceforge.net/projects/pentaho) - v8.3 with JVM 8 (unfortunately, PDI does not support the latest version of Java).
 
-* SBT (https://www.scala-sbt.org/) should also be installed - 0.13.18
-  or greater should work.
+     bash -c "export PENTAHO_JAVA_HOME=***ABSOLUT-PATH-TO-JRE-FOLDER***; sh spoon.sh"
+      
+     [PostgreSQL JDBC drivers](https://jdbc.postgresql.org) -v42.2.5 should already be in "data-integration/lib".
 
-* It is assumed that there is a Postgres database server
-  installed.  On this instance, the table `schema` should exist in the
-  database that will be used for experiments.  This table has columns
-  `tablename`, `fieldname`, `key` and each entry `(t,f,k)` represents
-  the fact that table `t` has field `f` which is a key (if `k=true`)
-  or value (if `k=false`).  Tables and fields not mentioned in
-  `schema` will be ignored by the system.
-
-* It is also assumed that Python 3 and libraries `numpy`, `scipy` and
-  `oscp` are installed.  Tested with Python 3.6; doing `pip install
-  numpy scipy oscp` should suffice.
-  
+* Install [GNUPlot](http://www.gnuplot.info) - v5.2
+ 
+     This is only required to generate the line charts as in the paper.
+ 
 # Building
 
-If all of the above are installed, this should just work:
-```
-make
-```
+1. Create a database in PostgreSQL.
 
-# Loading raw data into the database
+## R and S ([r_and_s.sql](r_and_s.sql))
 
-You can setup a database, create user credentials and create ordinary tables in PostgreSQL as usual.  For Eris to
-know about them, there should also be a table called `schema`, defined
-as follows:
-```
-CREATE TABLE public.schema
-(
-  tablename text NOT NULL,
-  fieldname text NOT NULL,
-  key boolean NOT NULL,
-  varfree boolean DEFAULT false,
-  CONSTRAINT schema_pkey PRIMARY KEY (tablename, fieldname)
-  )
-```
-A table T with key fields K1,...,Kn and value fields V1...Vm should be
-represented with n tuples
-(tablename=T,fieldname=Ki,key=True,varfree=false) and m tuples
-(tablename=T,fieldname=Vi,key=True,varfree=b)
-where b is true if the field never has any symbolic variables and
-false otherwise.  (This information allows some simple optimizations.)
-For already-defined tables, this information needs to be added
-manually, but for tables created by Eris for example by the loader or
-viewer utilities, these are added automatically.
+This a basic example with two tables to test the parsing and execution of simple queries in the prototype.
 
 # Running
 
-Try the following command:
-```
-sbt -J-Xmx4g Main <hostname> <dbname> <user> <password>
-```
-or equivalently
-```
-./run.sh <hostname> <dbname> <user> <password>
-```
-where `<hostname>` is the host name of the database, `<dbname>` is the name of a database hosted on a PostgreSQL
-instance (`<hostname>`:5432) and `<user>` and
-`<password>` are credentials for a user having access to `<dbname>`.
-This should result in the catalog query being run on `<dbname>` and
-the results printed out.  Subsequently, typing in a relational algebra
-query should yield the equivalent SQL being printed and the query
-being run on the database.  The query will first be typechecked
-against the schema represented by the `schema` table, and if it is not
-well formed then an error results.
+1. Call``spoon.sh`` (or ``Spoon.bat``, depending on the OS).
+   1. Go to ``Edit->Set Environment Variables`` and provide the four values for the database connection to PostgreSQL (i.e., database, host, username and password).
+1. Launch the ETL flow ``covid_world.kjb`` in Kettle to fill the tables in ``DatabaseSchema.png``
 
-## Loading raw views
+# Code structure
 
-The `Viewer` class offers an entry point that evaluates a query over
-raw inputs and
-stores it in the database as a new raw table.
-```
-./run-viewer.sh <hostname> <dbname> <user> <password> <spec>?
-```
-The first four arguments are the same as usual.  If the `<spec>`
-argument is not provided, the viewer provides a
-REPL that allows entering a view definition of the form `t := q`.  If
-table `t` is already present in the schema then you will be prompted
-whether to replace and overwrite it.
+The high level steps in the ETL are:
+1. Create all the tables (without integrity constraints).
+1. Load the dimensional information.
+1. Declare the constraints of the dimensions (i.e., location and time).
+1. Load in parallel:
+   1. JHU country data,
+   1. JHU region data, and
+   1. EuroStats data.
+1. Declare the constraints of the fact tables.
+1. Update all the statistics of the database.
 
-If `<spec>` is provided then it is treated as the filename of a
-specification defining one or more views, each of which is executed in
-order and stored in the database.  Later views can refer to
-earlier ones.
+## Schema table creation ([schema.sq](schema.sql))
+* The table `schema` should exist in the database that will be used for experiments.  This table has columns
+  `tablename`, `fieldname`, `key`, `varfree` and each entry `(t,f,k,v)` represents
+  the fact that table `t` has field `f` which is a key (if `k=true`)
+  or value (if `k=false`). In the case of a value, it can be declared to be free of variables (if `v=true`), in which case it can be freely multiplied or used as denominator. Tables and fields not mentioned in `schema` will be ignored by the system.
 
-Implemented algebraic operations are:
-* Selection over key-attributes: `r(<attr> <comp> '<value>')`
-* Projection of value-attributes: `r[<attr>(,<attr>)+]`
-* Projection-away: `r[^<attr>(,<attr>)+]`
-* Join: `r JOIN s`
-* Union: `r UNION s`
-* Discriminated union: `r DUNION[<attr>] s`
-* Renaming: `r{<attr> -> <attr>(,<attr> -> <attr>)*}`
-* Derivation: `r{<attr>:=[<attr>|<value>] <op> [<attr>|<value>](,<attr>|<value>] <op> [<attr>|<value>])+}`
-* Sum aggregation of value-attributes grouping by key-attributes: `r[<attr>(,<attr>)* SUM <attr>(,<attr>)*]`
-* Coalescing by removing some key attributes: `r[COAL <attr>(,<attr>)*]
+## COVID data
 
+![COVIDData database schema](COVIDData.png)
 
-## Transforming a raw table
+The [ETL](covid_world.kjb) loads the schema above with data from the described sources.
+It requires the correspoding CSV files to be available in `COVID data` folder and creates different files under `Error logs` to keep track of ignored rows for one reason or another.  
 
-The `Transformer` class transforms a raw table by applying a Gaussian
-noise distortion to nonnull values, replacing value fields with NULL
-with some probability, and deleting entire rows with some probability.
-To run, use the following command:
-```
-./run-transformer.sh <hostname> <dbname> <user> <password> <tablename> <sigma> <p_null> <p_delete>
-```
-where the first four arguments are the same as usual, `<sigma>` is the
-standard deviation of the Gaussian noise, `<p_null>` is the
-probability of a field being replaced with NULL and `<p_delete>` is
-the probability of an entire row being deleted.
+Some SQL scripts are also provided to facilitate the validation of data once loaded in the database:
+* [COVID sources validation of deaths.sql](COVID sources validation of deaths.sql) retrieves descriptive statistics of the fact tables and validations of quality issues in the data comming from EuroStats.
+* [COVID sources validation of cases.sql](COVID sources validation of cases.sql) compares the data from JHU at coutry and region levels, and retrieves negative reportings (which is already mitigated by taking the running average of seven days).
+* [COVIDCheckJoins.sql](COVIDCheckJoins.sql) checks the correspondences of reported data for Spain in the different sources.
+* [COVIDQuery.sql](COVIDQuery.sql) provides the algebraic queries used in the performed study of mortality using the prototype, together to some SQL queries to validate partial results of their algebraic counterpart. 
 
+# Results analysis
 
-## Loading symbolic tables
+The testing scala program (whose output is in [COVIDErrorData.csv](Charts/COVIDErrorData.csv) ) prints in the standard output the summary of every entity being coalesced (resulting in an independent system of equations). Thus, every printed row contains:
+* KindOfQuery: Whether it includes regional data or only those at the country level.
+* Shift: In case of dealing with regional data, this indicates the shift used to align cases and deaths (from 1 to 8 weeks).
+* Country: Identifier of the country.
+* Week: Identifier of the week.
+* #Eq: Number of equations in the system.
+* #Vars: Overall number of variables in the system of equations.
+* Eq. creation time: Time taken by the system to create all the equations.
+* Solve time: Time taken by the system to solve the system of equations.
+* Average squared error: Metric minimized on solving the system of equations.
 
-The `Loader` class offers an entry point that creates a symbolic
-version of a table, replacing NULL values with variables and
-optionally adding an error term for minimization.  We adopt the
-convention that null values are represented by variables starting with
-"_" and these do not contribute to the cost of a solution, while all
-other variables do contribute.
+These data can be automatically loaded into a dynamic table of the Excel file  [COVIDErrorAnalysis.xlsx](Charts/COVIDErrorAnalysis.xlsx) through the MSExcel query mechanims, by simply ``Update All`` button in the ``Data`` tab. From there, any data can be manually selected and copied either to other tab or an independent CSV file for further processing with GNUPlot (all CSV and PNG generated corresponding to the line charts in the paper are in the ``Charts`` folder).
 
-The loader currently works one table
-at a time.  It is used as follows:
-```
-./run-loader.sh <hostname> <dbname> <user> <password> <tablename> <encoding>? <cleanup>?
-```
-The first four arguments are the same as usual, while the final one is
-the name of the table to load.  This table must be listed in the
-schema table.  The optional `<encoding>` parameter selects which
-encoding to use, either `partitioning`
-or `nf2_sparsev`.  The optional `<cleanup>` flag performs cleanup of
-previously loaded symbolic tables.
+# Adding more data
 
-Currently, the loader creates virtual views to define the tables
-representing symbolic tables, rather than materializing the data.
+In case you want to provide source files with more recent data, a new CSV file needs to be added, the corresponding extraction needs to change the filename and, since different dates are provided per attribute, also its new attributes need to be incorporated to the tasks. Then, the projection and pivoting operations need also to be refreshed to consider the new attributes in the flow.
+* `Equalizer country` and `Equalizer region` projected attributes need to coincide.
+* `Row normalizer cases` and `Row normalizer deaths` need to pivot the new attributes.
 
+Thus, proceed as follows in the three transformations loading factual data (namely ``Load WorldData``, ``Load JHU``, and ``Load demographics``):
+1. Change all the ``CSV file input`` boxes:
+   1. Filename
+   1. Get Fields
+1. Change the two ``Select values`` boxes called ``Equalizer country`` and ``Equalizer region`` to project the new dates.
+2. Change the two ``Row normaliser`` boxes to pivot the new dates.
 
-
-
-## Solving 
-
-The `MaterializedSolver` class offers an entry point for finding a solution
-relating a symbolic table to a raw table. At the moment this supports REPL
-and CLI interaction, starting as follows:
-```
-./run-solver.sh <hostname> <dbname> <user> <password> (<encoding> <table>?)?
-```
-If the `<table>` parameter is supplied, then `<encoding>` also needs
-to be supplied and the solver runs noninteractively on the given table
-naem and encoding.
-If the table is not supplied then a REPL starts which accepts table
-names. Solving using table name `t` assumes such that there is both a raw table
-named `t` and a loaded symbolic table with the same root name and
-schema, using the provided encoding (which defaults to
-`partitioning`).
-The two tables are loaded and traversed to generate a
-linear/quadratic programming problem which is then solved by OSQP.
-The resulting valuation, and optimization distance if available, is printed out.
- The optional `<encoding>` parameter selects which
-encoding to use, either `partitioning`
-or `nf2_sparsev`.
-
-
-The `VirtualSolver` class performs the equivalent solving but uses
-virtual views to define the symbolic query results as well as to
-extract the system of equations that will be sent to the solver.  It
-also incorporates many optimizations to enable processing large
-results in a streaming fashion without running out of
-memory/overflowing the stack.  It does not offer an interactive mode,
-but examples of its use within scripts are shown in `SolveAll.scala`
-and `COVIDDeaths.scala`.
-
-# Makefile and building JAR file
-
-The `Makefile` now automates the process of building using SBT
-and comes with a script `run.sh` which
-can be run as follows:
-
-```
-make
-run.sh <hostname> <dbname> <user> <password>
-```
-
-
-# Scripting
-
-Most of the top-level executable files also expose their scriptable
-functionality as a Scala method, so can be scripted from another Scala
-program.  The file `Script.scala` shows an example of this, currently
-relying on some external files where specifications are stored (but
-these could also be stored in the script itself and parsed from string
-form).
-
-To run a Scala file that scripts actions in this way, do something
-like:
-```
-./run-script.sh Script.scala <hostname> <dbname> <username> <password> <encoding>
-```
-This approach has potential advantages over using shell / batch
-scripting:
-- portability
-- avoids multiple JVM restarts and (potentially) avoids creating
-numerous DB connections
-- avoids need to repeatedly enter connection parameters/encoding
+The running average of cases/deaths is set to seven days. This can be modified by changing the correspondign value at `Get yesterday` and `Calculator` boxes.
