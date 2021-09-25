@@ -20,7 +20,7 @@ set key inside left
 #set title 'Running average of weekly errors per country without considering regional data'
 #set title offset 0,-4
 #----------------------------------------------Axis
-set yrange [0:0.12]
+set yrange [0:0.10]
 set ylabel 'Average squared error'
 set ylabel offset -2.5,0
 set ytics nomirror
