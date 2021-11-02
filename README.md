@@ -23,8 +23,8 @@ JVM 11 should work.
    * The auxiliary SQL funcions must be created by executing the scripts in the folder ``SQLFunctions`` (there is a different SQL script for each implementation of s-tables).
 
 * It is also assumed that Python 3 and libraries `numpy`, `scipy` and
-  `oscp` are installed.  Tested with Python 3.6; doing `pip install
-  numpy scipy oscp` should suffice.
+  `osqp` are installed.  Tested with Python 3.6; doing `pip install
+  numpy scipy osqp` should suffice.
   
 # Building
 
