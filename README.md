@@ -30,6 +30,10 @@ JVM 11 should work.
 
 If all of the above are installed, this should just work:
 ```
+sbt compile
+```
+alternatively
+```
 make
 ```
 
@@ -61,13 +65,17 @@ viewer utilities, these are added automatically.
 
 # Running
 
-Try the following command:
+Try the following command in UNIX:
 ```
 sbt -J-Xmx4g Main <hostname> <dbname> <user> <password>
 ```
 or equivalently
 ```
 ./run.sh <hostname> <dbname> <user> <password>
+```
+alternatively, in Windows, simply enter SBT and execute:
+```
+run main <hostname> <dbname> <user> <password>
 ```
 where `<hostname>` is the host name of the database, `<dbname>` is the name of a database hosted on a PostgreSQL
 instance (`<hostname>`:5432) and `<user>` and
