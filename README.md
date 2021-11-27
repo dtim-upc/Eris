@@ -26,6 +26,9 @@ JVM 11 should work.
   `osqp` are installed.  Tested with Python 3.6; doing `pip install
   numpy scipy osqp` should suffice.
   
+  Required libraries and drivers (including JDBC) are already in `lib` folder. 
+  In Windows, ``python.bat`` must point to the Python implementation with OSQP.
+  
 # Building
 
 If all of the above are installed, this should just work:
