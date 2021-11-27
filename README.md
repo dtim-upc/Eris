@@ -23,16 +23,11 @@ JVM 11 should work.
    * The auxiliary SQL funcions must be created by executing the scripts in the folder ``SQLFunctions`` (there is a different SQL script for each implementation of s-tables).
 
 * It is also assumed that Python 3 and libraries `numpy`, `scipy` and
-<<<<<<< HEAD
-  `osqp` are installed.  Tested with Python 3.6; doing `pip install
-  numpy scipy osqp` should suffice.
-=======
   `osqp` are installed.  Tested with Python v3.6, numpy v1.18.4, scipy v1.5.2, and osqp v0.6.1; doing `pip install
   numpy scipy osqp` should suffice.
   
   Required libraries and drivers (including JDBC) are already in `lib` folder. 
   In Windows, ``python.bat`` must point to the Python implementation with OSQP.
->>>>>>> 9fa7e49447ca49351b59bf3da33fc98ef7a4c3f4
   
 # Building
 
