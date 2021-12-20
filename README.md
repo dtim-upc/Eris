@@ -199,6 +199,10 @@ and CLI interaction, starting as follows:
 ```
 ./run-solver.sh <hostname> <dbname> <user> <password> (<encoding> <table>?)?
 ```
+alternatively, in Windows, simply enter SBT and execute:
+```
+runMain MaterializedSolver <hostname> <dbname> <user> <password> (<encoding> <table>?)?
+```
 If the `<table>` parameter is supplied, then `<encoding>` also needs
 to be supplied and the solver runs noninteractively on the given table
 name and encoding.
@@ -265,7 +269,7 @@ sbt -J-Xmx4g COVIDDeaths <hostname> <dbname> <user> <password> <encoding>
 ```
 or equivalently simply enter SBT and execute:
 ```
-run COVIDDeaths <hostname> <dbname> <user> <password> <encoding>
+runMain COVIDDeaths <hostname> <dbname> <user> <password> <encoding>
 ```
 This iterates over six different countries (namely NL, SE, DE, IT, ES, UK), and aligns the data available in JHU with those in Eurostats related to COVID cases and deaths.
 For eight possible alignments of cases and deaths (between one and eight weeks), and each week between February 2020 and February 2021, it generates two rows for each country.
