@@ -45,7 +45,7 @@ make
 You can setup a database, create user credentials and create ordinary tables in PostgreSQL as usual. Then, you can fill in the tables using ETL as in ``UseCase_COVID`` (or fill any other table at will, and run your own experiments).
 For Eris to
 know about them, there should also be a table called `schema`, defined
-as follows:
+as follows (there is a script under ``UseCase_COVID`` folder):
 ```
 CREATE TABLE public.schema
 (
@@ -68,75 +68,7 @@ viewer utilities, these are added automatically.
 
 # Running
 
-Try the following command in UNIX:
-```
-sbt -J-Xmx4g Main <hostname> <dbname> <user> <password>
-```
-or equivalently
-```
-./run.sh <hostname> <dbname> <user> <password>
-```
-alternatively, in Windows, simply enter SBT and execute:
-```
-run main <hostname> <dbname> <user> <password>
-```
-where `<hostname>` is the host name of the database, `<dbname>` is the name of a database hosted on a PostgreSQL
-instance (`<hostname>`:5432) and `<user>` and
-`<password>` are credentials for a user having access to `<dbname>`.
-This should result in the catalog query being run on `<dbname>` and
-the results printed out.  Subsequently, typing in a relational algebra
-query should yield the equivalent SQL being printed and the query
-being run on the database.  The query will first be typechecked
-against the schema represented by the `schema` table, and if it is not
-well formed then an error results.
-
-The code is structured in three different classes that can be easily composed to achieve the desired results.
-
-## Loading raw views
-
-The `Viewer` class offers an entry point that evaluates a query over
-raw inputs and
-stores it in the database as a new raw table.
-```
-./run-viewer.sh <hostname> <dbname> <user> <password> <spec>?
-```
-The first four arguments are the same as usual.  If the `<spec>`
-argument is not provided, the viewer provides a
-REPL that allows entering a view definition of the form `t := q`.  If
-table `t` is already present in the schema then you will be prompted
-whether to replace and overwrite it.
-
-If `<spec>` is provided then it is treated as the filename of a
-specification defining one or more views, each of which is executed in
-order and stored in the database.  Later views can refer to
-earlier ones.
-
-Implemented algebraic operations are:
-* Selection over key-attributes: `r(<attr> <comp> '<value>')`
-* Projection of value-attributes: `r[<attr>(,<attr>)+]`
-* Projection-away: `r[^<attr>(,<attr>)+]`
-* Join: `r JOIN s`
-* Union: `r UNION s`
-* Discriminated union: `r DUNION[<attr>] s`
-* Renaming: `r{<attr> -> <attr>(,<attr> -> <attr>)*}`
-* Derivation: `r{<attr>:=[<attr>|<value>] <op> [<attr>|<value>](,<attr>|<value>] <op> [<attr>|<value>])+}`
-* Sum aggregation of value-attributes grouping by key-attributes: `r[<attr>(,<attr>)* SUM <attr>(,<attr>)*]`
-* Coalescing by removing some key attributes: `r[COAL <attr>(,<attr>)*]`
-
-## Transforming a raw table
-
-The `Transformer` class transforms a raw table by applying a Gaussian
-noise distortion to nonnull values, replacing value fields with NULL
-with some probability, and deleting entire rows with some probability.
-To run, use the following command:
-```
-./run-transformer.sh <hostname> <dbname> <user> <password> <tablename> <sigma> <p_null> <p_delete>
-```
-where the first four arguments are the same as usual, `<sigma>` is the
-standard deviation of the Gaussian noise, `<p_null>` is the
-probability of a field being replaced with NULL and `<p_delete>` is
-the probability of an entire row being deleted.
-
+The code is structured in five different classes that can be easily composed to achieve the desired results.
 
 ## Loading symbolic tables
 
@@ -152,6 +84,11 @@ at a time.  It is used as follows:
 ```
 ./run-loader.sh <hostname> <dbname> <user> <password> <tablename> <encoding>? <cleanup>?
 ```
+or equivalently simply enter SBT and execute:
+```
+runMain Loader <hostname> <dbname> <user> <password>  <tablename> <encoding>? <cleanup>?
+```
+
 The first four arguments are the same as usual, while the final one is
 the name of the table to load.  This table must be listed in the
 schema table.  The optional `<encoding>` parameter selects which
@@ -172,6 +109,87 @@ Thus, each row of these tables contains one of the non-constant terms of the sym
 ### Non-First Normal Form with sparse vectors
 
 This encoding creates a view with the same primary key and attributes as the s-table, but the datatype of every symbolic attribute is a sparse vector.
+
+## Querying symbolic tables
+
+Try the following command in UNIX:
+```
+sbt -J-Xmx4g Main <hostname> <dbname> <user> <password>
+```
+or equivalently
+```
+./run.sh <hostname> <dbname> <user> <password>
+```
+alternatively, in Windows, simply enter SBT and execute:
+```
+runMain Main <hostname> <dbname> <user> <password>
+```
+where `<hostname>` is the host name of the database, `<dbname>` is the name of a database hosted on a PostgreSQL
+instance (`<hostname>`:5432) and `<user>` and
+`<password>` are credentials for a user having access to `<dbname>`.
+Notice that the s-table should have been loaded previously using Non-First Normal Form with sparse vectors implementation.
+This should result in the catalog query being run on `<dbname>` and
+the results printed out.  Subsequently, typing in a relational algebra
+query should yield the equivalent SQL being printed and the query
+being run on the database.  The query will first be typechecked
+against the schema represented by the `schema` table, and if it is not
+well formed then an error results.
+If everything goes well, it prints the result of the query, as well as the constraints generated by coalescing (this will be empty if coalescing is not provided in the query).
+
+Implemented algebraic operations are:
+* Selection over key-attributes: `r(<attr> <comp> '<value>')`
+* Projection of value-attributes: `r[<attr>(,<attr>)+]`
+* Projection-away: `r[^<attr>(,<attr>)+]`
+* Join: `r JOIN s`
+* Union: `r UNION s`
+* Discriminated union: `r DUNION[<attr>] s`
+* Renaming: `r{<attr> -> <attr>(,<attr> -> <attr>)*}`
+* Derivation: `r{<attr>:=[<attr>|<value>] <op> [<attr>|<value>](,<attr>|<value>] <op> [<attr>|<value>])+}`
+* Sum aggregation of value-attributes grouping by key-attributes: `r[<attr>(,<attr>)* SUM <attr>(,<attr>)*]`
+* Coalescing by removing some key attributes: `r[COAL <attr>(,<attr>)*]`
+
+Operations can be chained using parenthesis (e.g., ``(r[^c,d]) JOIN s``)
+
+## Transforming a raw table
+
+The `Transformer` class transforms a raw table by applying a Gaussian
+noise distortion to nonnull values, replacing value fields with NULL
+with some probability, and deleting entire rows with some probability.
+To run, use the following command:
+```
+./run-transformer.sh <hostname> <dbname> <user> <password> <tablename> <sigma> <p_null> <p_delete>
+```
+alternatively, in Windows, simply enter SBT and execute:
+```
+runMain Transformer <hostname> <dbname> <user> <password> <tablename> <sigma> <p_null> <p_delete>
+```
+where the first four arguments are the same as usual, `<sigma>` is the
+standard deviation of the Gaussian noise, `<p_null>` is the
+probability of a field being replaced with NULL and `<p_delete>` is
+the probability of an entire row being deleted.
+
+## Loading raw views
+
+The `Viewer` class offers an entry point that evaluates a query over
+raw inputs and
+stores it in the database as a new raw table.
+```
+./run-viewer.sh <hostname> <dbname> <user> <password> <spec>?
+```
+alternatively, in Windows, simply enter SBT and execute:
+```
+runMain Viewer <hostname> <dbname> <user> <password> <spec>?
+```
+The first four arguments are the same as usual.  If the `<spec>`
+argument is not provided, the viewer provides a
+REPL that allows entering a view definition of the form `t := q`.  If
+table `t` is already present in the schema then you will be prompted
+whether to replace and overwrite it.
+
+If `<spec>` is provided then it is treated as the filename of a
+specification defining one or more views, each of which is executed in
+order and stored in the database.  Later views can refer to
+earlier ones.
 
 ## Solving 
 
@@ -196,7 +214,6 @@ The resulting valuation, and optimization distance if available, is printed out.
 encoding to use, either `partitioning`
 or `nf2_sparsev`.
 
-
 The `VirtualSolver` class performs the equivalent solving but uses
 virtual views to define the symbolic query results as well as to
 extract the system of equations that will be sent to the solver.  It
@@ -216,7 +233,6 @@ can be run as follows:
 make
 run.sh <hostname> <dbname> <user> <password>
 ```
-
 
 # Scripting
 
