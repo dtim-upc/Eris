@@ -36,8 +36,10 @@ object Viewer {
         (if (schema.varfreeFields.contains(v)) {"TRUE"} else {"FALSE"}) + ")")
     }
     conn.commit()
-
+    conn.close()
+    
     ctx + (vtable -> schema)
+    
   }
 
   def handleSpecification(connector: Connector, ctx: Database.InstanceSchema, spec: List[(String,Absyn.Query)]) = {
@@ -53,7 +55,7 @@ object Viewer {
 
     val conn = connector.getConnection()
     val ctx = Database.loadSchema(conn)
-
+    conn.close()
 
     try {
       handleSpecification(connector,ctx, spec)

@@ -11,7 +11,7 @@ object Transformer {
 
     val conn = connector.getConnection()
     val ctx = Database.loadSchema(conn)
-
+    
     if (!ctx.contains(tbl)) {
       println("Warning: table " + tbl + " is not present in schema")
       System.exit(0)
@@ -43,6 +43,8 @@ object Transformer {
       st.executeUpdate(cmd)
       conn2.commit()
     }
+    conn.close()
+    conn2.close()
   }
 
 

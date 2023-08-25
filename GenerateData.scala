@@ -4,24 +4,7 @@ import scala.util.Random
 
 object GenerateData {
 
-  case class UpdQueue(conn: java.sql.Connection, size: Int) {
-    val queue = scala.collection.mutable.Queue[String]()
-    def put(upd: String): Unit = {
-      if (queue.length >= size) {
-        flush()
-      }
-      queue.enqueue(upd)
-    }
-    def flush(): Unit = {
-      val upds = queue.dequeueAll(_ => true)
-      val st = conn.createStatement()
-      st.executeUpdate(upds.mkString(";"))
-      conn.commit()
-    }
-    def close(): Unit = {
-      flush()
-    }
-  }
+  
 
 
   def main(args:Array[String]) : Unit = {
@@ -35,47 +18,72 @@ object GenerateData {
     val password = args(3)
     val n = args(4).toInt
 
-    val c_mean = rand.nextDouble()*n
-    val c_stdev = rand.nextGaussian()
-    val d_mean = rand.nextDouble()*n
-    val d_stdev = rand.nextGaussian()
-    val e_mean = rand.nextDouble()*n
-    val e_stdev = rand.nextGaussian()
-    val f_mean = rand.nextDouble()*n
-    val f_stdev = rand.nextGaussian()
-
-    def gaussian(mean: Double, stdev: Double) = {
-      mean + stdev * rand.nextGaussian()
+    def random(n: Int): Double = {
+      rand.nextDouble()*n
     }
-
     val connector = Connector(hostname, dbname, username, password)
 
 
     val conn = connector.getConnection()
+
+    val table_r = "r"
+    val r_schema = Database.Schema(Set("a","b"), Set("c","d"), Set())
+    val table_s = "s"
+    val s_schema = Database.Schema(Set("b"), Set("e","f"), Set())
+     
+   
+    // remove/recreate r,s if present
+    
+
     conn.setAutoCommit(false)
-    val updQ = UpdQueue(conn,1024)
-
+    
     val st = conn.createStatement()
-    st.executeUpdate("TRUNCATE r")
-    st.executeUpdate("TRUNCATE s")
+    st.executeUpdate(Database.dropTableCommand(table_r))
+    st.executeUpdate(Database.dropTableCommand(table_s))
 
+    st.executeUpdate( Database.createTableCommand(table_r,Database.schemaToTableDef(r_schema,"double precision")) )
+    st.executeUpdate( Database.createTableCommand(table_s,Database.schemaToTableDef(s_schema,"double precision")) )
+    
+    val updQ = Database.UpdQueue(conn,1024)
     var bi = 0
     for (i <- Range(0,n)) {
       bi = bi + rand.nextInt(2) + 1
       val b = bi.toString
-      val e = gaussian(e_mean, e_stdev)
-      val f = gaussian(f_mean, f_stdev)
+      val e = random(n)
+      val f = random(n)
       updQ.put(Database.insertRowCommand("s",(Map("b" -> b),Map("e" -> Absyn.FloatV(e), "f" -> Absyn.FloatV(f)))))
       var ai = 0
       for (j <- Range(0,rand.nextInt(java.lang.Math.ceil(java.lang.Math.sqrt(n)).toInt))) {
         ai = ai + rand.nextInt(2) + 1
         val a = ai.toString
-        val c = gaussian(c_mean, c_stdev)
-        val d = gaussian(d_mean, d_stdev)
+        val c = random(n)
+        val d = random(n)
         updQ.put(Database.insertRowCommand("r",(Map("a" -> a, "b" -> b),Map("c" -> Absyn.FloatV(c), "d" -> Absyn.FloatV(d)))))
       }
      if (i % 100 == 0) { println(i) }
     }
     updQ.close()
+
+    // add key constraint at the end to avoid rechecking it a million times
+    st.executeUpdate(Database.alterTableCommand(table_r,r_schema))
+    st.executeUpdate(Database.alterTableCommand(table_s,s_schema))
+    conn.commit()
+    
+    def resetSchema( tablename: String,  schema: Database.Schema): Unit = {
+      st.executeUpdate("DELETE FROM schema WHERE tablename = '"+tablename+"';")
+    
+      schema.keyFields.foreach{k =>
+        st.executeUpdate("INSERT INTO schema (tablename,fieldname,key,varfree) VALUES ('"+tablename+"','"+k+"',TRUE,FALSE)")
+      }
+      schema.valFields.foreach{v =>
+        st.executeUpdate("INSERT INTO schema (tablename,fieldname,key,varfree) VALUES ('"+tablename+"','"+v+"',FALSE," +
+          (if (schema.varfreeFields.contains(v)) {"TRUE"} else {"FALSE"}) + ")")
+      }
+      conn.commit()
+    }
+
+    resetSchema(table_r, r_schema)
+    resetSchema(table_s, s_schema)
+    conn.close()
   }
 }

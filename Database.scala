@@ -498,4 +498,23 @@ WHERE $test);
     Database.getRelation(stream,sch)
   }
 
+  case class UpdQueue(conn: java.sql.Connection, size: Int) {
+    val queue = scala.collection.mutable.Queue[String]()
+    def put(upd: String): Unit = {
+      if (queue.length >= size) {
+        flush()
+      }
+      queue.enqueue(upd)
+    }
+    def flush(): Unit = {
+      val upds = queue.dequeueAll(_ => true)
+      val st = conn.createStatement()
+      st.executeUpdate(upds.mkString(";"))
+      conn.commit()
+    }
+    def close(): Unit = {
+      flush()
+    }
+  }
+
 }

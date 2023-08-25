@@ -303,6 +303,7 @@ print(json.dumps({"solution": res.x.tolist(), "objective": res.info.obj_val}))
     val (symbolic,symbolicTime) = timeIt(Database.Rel(enc_iter.toMap))
     val (coalesced,coalesceTime) = timeIt(coalesce(result,symbolic))
     println(s"$getTime,$iterTime,$symbolicTime,$coalesceTime")
+    conn.close()
     coalesced
   }
 

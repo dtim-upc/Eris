@@ -6,7 +6,8 @@ object Loader {
   def load(connector: Connector, tablename: String, encode: Encoding, cleanup: Boolean) = {
     val conn = connector.getConnection()
     val ctx = Database.loadSchema(conn)
-
+    conn.close()
+    
     val q = Absyn.Relation(tablename)
     val schema = Absyn.Query.tc(ctx,q)
 
@@ -37,6 +38,7 @@ object Loader {
         conn2.commit()
       }
     }
+    conn2.close()
 
   }
 
