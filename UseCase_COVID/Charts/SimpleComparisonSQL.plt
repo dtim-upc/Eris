@@ -21,7 +21,7 @@ set key inside right
 #----------------------------------------------Axis
 set logscale y
 set yrange [1e-10:100]
-set ylabel 'Average squared error'
+set ylabel 'Average squared difference'
 set ylabel offset -5,0
 set ytics nomirror
 set xlabel 'Weeks'
