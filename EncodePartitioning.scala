@@ -180,6 +180,15 @@ object EncodePartitioning extends Encoding {
                 schema.keyFields.toList,schema.valFields.toList))),
           vc)
 
+      case Derivation(q,List((b,Plus(Num(c),Var(a))))) =>
+        queryEncoding(Derivation(q,List((b,Plus(Var(a),Num(c))))))
+
+      case Derivation(q,List((f,Plus(Var(a),Num(c))))) =>
+        val (q0,qm,vc) = queryEncoding(q)
+        (Derivation(q0,List((f,Plus(Var(a),Num(c))))),
+          qm + (f -> qm(a)),
+          vc)
+
       case Derivation(q,List((b,Var(a)))) =>
         val (q0,qm,vc) = queryEncoding(q)
         (Derivation(q0,List((b,Var(a)))),
