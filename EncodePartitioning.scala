@@ -264,7 +264,7 @@ object EncodePartitioning extends Encoding {
         }
         // TODO: this can lead to exponential blowup...
         val qm_f = (q.schema.varfreeFields.contains(a),q.schema.varfreeFields.contains(b)) match {
-          case (true,true) => qm + (f -> Emptyset) // TODO: only needed because schema requires it
+          case (true,true) => qm + (f -> varfreeDeriv(a,b)) // TODO: Actually, the query always returns the emptyset, but it is required to keep the schema
           case (false,true) => qm + (f -> varfreeDeriv(a,b))
           case (_,false) => throw NYI // this case should not happen if query is well formed
         }
